@@ -29,14 +29,54 @@
         <h3>
 <a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p>Install KVM</p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
+<pre><code>$ yum groupinstall 'Virtualization'
+$ systemctl enable libvirtd.service
+$ systemctl start libvirt.service
 </code></pre>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+
+<p>Setup TFTP.</p>
+
+
+<pre><code>$ yum -y install tftp-server syslinux
+$ systemctl disable xinetd.servcie
+$ systemctl disable tftp.service
+$ cp /usr/share/syslinux/{pxelinux.0,menu.c32,chain.c32} /var/lib/tftpboot
+$ chgrp -R nobody /var/lib/tftpboot
+$ find /var/lib/tftpboot/ -type d | xargs chmod g+s
+
+</code></pre>
+
+<p>Define a persistent virtual network in libvirt.</p>
+
+
+<pre><code>$ cat > /tmp/net-def.xml << EOF
+<network>
+ <name>default</name>
+ <uuid>e041d7ff-893e-42b7-8d27-634ce72f075e</uuid>
+ <forward mode='nat'>
+ <nat>
+ <port start='1024' end='65535'/>
+ </nat>
+ </forward>
+ <bridge name='virbr0' stp='on' delay='0'/>
+ <mac address='52:54:00:b2:fa:27'/>
+ <domain name='pgustafs'/>
+ <ip address='192.168.122.1' netmask='255.255.255.0'>
+ <tftp root='/var/lib/tftpboot'/>
+ <dhcp>
+ <range start='192.168.122.2' end='192.168.122.254'/>
+ <bootp file='pxelinux.0'/>
+ </dhcp>
+ </ip>
+</network>
+EOF
+$ virsh net-destroy default
+$ virsh net-define --file /tmp/net-def.xml
+$ virsh net-start default
+</code></pre>
 
 <h3>
 <a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
